@@ -1,0 +1,125 @@
+*******************员工管理系统*****************
+
+
+
+###数据库设计
+1.员工表作为部门表的子表，在添加的时候一定要选择部门编号          部门表-员工表（一对多）
+		部门表---部门id，部门编号
+		员工表---员工id，姓名，性别，地址，生日，照片，部门id
+2.薪水表与员工表对应
+		薪水表---薪水id，员工id，员工薪水
+3.福利表作为一个单独表记录公司所有福利
+		福利表---福利id，福利名
+4.员工福利表，为了解决福利与员工之间多对多关系，而产生的关系属性表
+		员工福利表---员工福利表id，员工id，福利id
+		
+		
+		
+###项目流程
+1.实用技术：使用SSM框架+easyui
+2.项目分层：
+	com.po:      
+		Dep:
+				depid,depname;
+		Emp:
+				eid,ename,sex,address,birthday,photo="default.jpg",depid;
+				//与页面相关的临时属性***
+				depname,emoney;
+				//福利关联属性
+				String[] wids;//接收前台福利复选框的福利id数组
+		 		List<Welfare> lswf;
+				//文件上传
+				MultipartFile pic;
+				//生日日期转换
+				sdate;
+				
+		EmpWelfare:
+				ewid,eid,wid;
+				
+		Welfare:
+				wid,wname;
+				
+		Salary:
+				sid;,eid,emoney;
+				
+		PageBean:
+				page=1,rows=5,maxpage,List<?> pagelist;
+		-----------------------------------------------------------------------	
+			
+	com.mapper:
+		   
+		IDepMapper:部门
+				public List<Dep> findAll();//查询所有的部门
+			
+		IEmpMapper:员工
+				public int save(Emp emp);//入参员工对象，进行保存
+			  	public int update(Emp emp);//入参员工对象，进行修改
+			 	public int delById(Integer eid);//入参员工id，进行条件删除
+			  	public Emp findById(Integer eid);//入参员工id，进行条件查询
+			 	public List<Emp> findPageAll(PageBean pb);//分页查询。
+			 		***1.在入参时，在业务层对页码进行处理-------执行的时预处理sql语句#取值
+			 		***2.在sql语句中处理页码------执行的为sql语句$取值
+			 			select e.*,d.depname from emp e,dep d where e.depid=d.depid order by eid  limit ${(page-1)*rows} , ${rows}
+			  	public int findMaxRows();//查询最大行数---其实就是查询一共有多少员工
+			  	public int findmaxId();//获取最大id---其实就是获取刚刚添加的用户id
+		IEmpWelfareMapper:员工福利
+				public int save(EmpWelfare ewf);//保存员工福利
+				public List<Welfare> findByEid(Integer eid);//根据员工编号查询福利
+				public int delByEid(Integer eid);//根据员工编号删除福利
+		IWelfareMapper:福利
+				public List<Welfare> findAll();//查询所有福利
+		ISalaryMapper:薪水
+				public int save(Salary sa);//保存薪资
+				public int updateByEid(Salary sa);//根据员工编号，更新薪资
+				public int delByEid(Integer eid);//根据员工编号，删除薪资
+				public Salary findSalaryByEid(Integer eid);//根据员工编号，查询薪资
+	com.biz:
+		IDepBiz：
+				public List<Dep> findAll();
+		IEmpBiz：
+				public boolean save(Emp emp);
+			  	public boolean update(Emp emp);
+			  	public boolean delById(Integer eid);
+			  	public Emp findById(Integer eid);
+			  	public List<Emp> findPageAll(PageBean pb);
+			  	public int findMaxRows();
+		IWelfareBiz：
+				public List<Welfare> findAll();
+	com.biz.impl:
+		DepBizImpl：
+		EmpBizImpl：
+				1.***添加
+					*先添加员工
+					*获取添加员工的id------方便保存薪资与福利（通过对象入参）。
+						*薪资--保存薪资
+						*福利--接收前台数据分装String[]数组。在福利数组不为空的情况下(wids!=null&&wids.length>0)，
+						遍历保存（对象在循环中生成）
+				2.***更新
+					*更新员工
+					*薪资--先获取原来的薪资，判断有没有薪资(oldsa!=null&&oldsa.getEmoney()!=null)
+						*有：调用更新薪资
+						*没有：调用保存薪资
+					*福利--先获取原来的福利，判断有没有福利(lswf!=null&&lswf.size()>0)
+						*有：删除原来的福利，最后按没有福利统一添加福利
+						*没有：添加福利（使用的跟添加方法中福利添加步骤一致）
+				3.***删除（先删除子表，在删除从表）
+					*删除福利
+					*删除薪资
+					*删除员工
+				4.***查询单个
+					*先查询员工
+					*查询薪资---判断是否有薪资
+						*有--给员工对象进行设置
+					*查询福利
+						---根据员工id，获取员工福利
+						---判断有没有福利，给（与前台交互的福利String[]数组赋值）
+						---将福利设置到福利集合中。
+		WelfareBizImpl：
+	com.action:
+		IAction,
+		EmpAction(实现IAction)
+	com.util:
+	com.service：对所有的mapper与biz接口进行统一注入，方便以后使用。
+		BizService:
+		DaoService:
+	resource:
